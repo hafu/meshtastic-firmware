@@ -90,6 +90,7 @@
 #include "modules/DropzoneModule.h"
 #endif
 
+#include "modules/ExperimentModule.h"
 /**
  * Create module instances here.  If you are adding a new module, you must 'new' it here (or somewhere else)
  */
@@ -141,6 +142,7 @@ void setupModules()
 #endif
         // Example: Put your module here
         // new ReplyModule();
+        new ExperimentModule();
 #if (HAS_BUTTON || ARCH_PORTDUINO) && !MESHTASTIC_EXCLUDE_INPUTBROKER
         rotaryEncoderInterruptImpl1 = new RotaryEncoderInterruptImpl1();
         if (!rotaryEncoderInterruptImpl1->init()) {
