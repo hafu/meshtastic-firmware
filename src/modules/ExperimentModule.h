@@ -20,4 +20,5 @@ class ExperimentModule : public SinglePortModule
     // virtual meshtastic_MeshPacket *allocReply() override;
     virtual ProcessMessage handleReceived(const meshtastic_MeshPacket &mp) override;
     virtual bool wantPacket(const meshtastic_MeshPacket *p) override;
+    int startsWith(const unsigned char *str, const char *prefix);
 };
