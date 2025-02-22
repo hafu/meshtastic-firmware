@@ -13,15 +13,11 @@
 ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
     auto &p = mp.decoded;
-#ifdef DEBUG_PORT
     LOG_INFO("ExperimentModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
-#endif
 
     // only reply to private msg
     if (isToUs(&mp) && startsWith(p.payload.bytes, "ping")) {
-#ifdef DEBUG_PORT
         LOG_INFO("ExperimentModule: message for us, send reply.");
-#endif
         // TODO: use allocReply implementation?
         meshtastic_MeshPacket *rp = allocDataPacket();
         if (rp) {
@@ -42,20 +38,12 @@ ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
                 rp->decoded.payload.size = strlen(replyString);
                 memcpy(rp->decoded.payload.bytes, replyString, rp->decoded.payload.size);
                 service->sendToMesh(rp);
-#ifdef DEBUG_PORT
                 LOG_INFO("ExperimentModule: reply send?");
-#endif
             } else {
-#ifdef DEBUG_PORT
                 LOG_INFO("ExperimentModule: Buffer overflow? %d available: %d", nchars, replyStringSize);
-#endif
-                
             }
         } else {
-#ifdef DEBUG_PORT
-        LOG_INFO("ExperimentModule: faild to allocate...");
-#endif
-        
+            LOG_INFO("ExperimentModule: faild to allocate...");
         }
     }
     
