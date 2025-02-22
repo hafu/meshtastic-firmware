@@ -12,13 +12,13 @@
 
 ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
-#ifdef DEBUG_PORT
     auto &p = mp.decoded;
+#ifdef DEBUG_PORT
     LOG_INFO("ExperimentModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
 #endif
 
     // only reply to private msg
-    if (isToUs(&mp)) {
+    if (isToUs(&mp) && startsWith(p.payload.bytes, "ping")) {
 #ifdef DEBUG_PORT
         LOG_INFO("ExperimentModule: message for us, send reply.");
 #endif
@@ -29,7 +29,8 @@ ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
             rp->decoded.want_response = false;
             // TODO: set priority?
             // rp->priority = meshtastic_MeshPacket_Priority_DEFAULT;
-            // rp->channel = mp.channel;
+            rp->priority = mp.priority;
+            rp->channel = mp.channel;
             rp->want_ack = false;
 
             static char replyString[MAX_LORA_PAYLOAD_LEN+1];
@@ -64,4 +65,12 @@ ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
 bool ExperimentModule::wantPacket(const meshtastic_MeshPacket *p)
 {
     return MeshService::isTextPayload(p);
+}
+
+int ExperimentModule::startsWith(const unsigned char *str, const char *prefix) {
+    while (*prefix && std::tolower((unsigned char)*prefix) == std::tolower((unsigned char)*str)) {
+        prefix++;
+        str++;
+    }
+    return *prefix == '\0';
 }
