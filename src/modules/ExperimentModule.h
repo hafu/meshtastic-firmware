@@ -1,5 +1,6 @@
 #pragma once
 #include "SinglePortModule.h"
+#include "meshtastic/mesh.pb.h"
 #include "meshtastic/portnums.pb.h"
 
 /**
@@ -21,4 +22,7 @@ class ExperimentModule : public SinglePortModule
     virtual ProcessMessage handleReceived(const meshtastic_MeshPacket &mp) override;
     virtual bool wantPacket(const meshtastic_MeshPacket *p) override;
     int startsWith(const unsigned char *str, const char *prefix);
+    void handlePingMessage(const meshtastic_MeshPacket &mp);
+    void handleTestMessage(const meshtastic_MeshPacket &mp);
+    void sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage);
 };

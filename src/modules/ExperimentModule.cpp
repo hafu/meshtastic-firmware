@@ -12,77 +12,20 @@
 #include <cstddef>
 
 
+#define EXPMOD_MAX_SIGNAL_STRING_SIZE 50
+#define EXPMOD_MAX_HOPS_STRING_SIZE 20
+
 ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
     auto &p = mp.decoded;
     LOG_INFO("ExperimentModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
 
     if (startsWith(p.payload.bytes, "ping")) {
-        // TODO: use allocReply implementation?
-        meshtastic_MeshPacket *rp = allocDataPacket();
-        if (rp) {
-            // per default reply to sender directly
-            rp->to = mp.from;
-            rp->decoded.want_response = false;
-            // TODO: set priority?
-            // rp->priority = meshtastic_MeshPacket_Priority_DEFAULT;
-            rp->priority = mp.priority;
-            rp->channel = mp.channel;
-            rp->want_ack = false;
-
-            static char replyString[MAX_LORA_PAYLOAD_LEN+1];
-            size_t replyStringSize = sizeof(replyString);
-            int nchars = 0;
-
-            // private message
-            if (isToUs(&mp)) {
-                nchars = snprintf(
-                                  replyString,
-                                  replyStringSize,
-                                  "🤖 pong 🏓 snr: %.2f, rssi: %i, hops: %u",
-                                  mp.rx_snr, mp.rx_rssi, (mp.hop_start-mp.hop_limit)
-                              );
-            }
-            // TODO: config to only allow to reply directly
-            if (!isFromUs(&mp) && mp.to == NODENUM_BROADCAST) {
-                rp->to = NODENUM_BROADCAST;
-
-                meshtastic_NodeInfoLite *n = nodeDB->getMeshNode(getFrom(&mp));
-                if (n != NULL) {
-                    nchars = snprintf(
-                                      replyString,
-                                      replyStringSize,
-                                      "🤖 @%s pong 🏓 snr: %.2f, rssi: %i, hops: %u",
-                                      n->user.short_name, mp.rx_snr, mp.rx_rssi, (mp.hop_start-mp.hop_limit)
-                                  );
-                } else {
-                    LOG_WARN("ExperimentModule: Node (0x%0x) not in NodeDB", mp.from);
-                    nchars = snprintf(
-                                      replyString,
-                                      replyStringSize,
-                                      "🤖 @!%0x pong 🏓 snr: %.2f, rssi: %i, hops: %u",
-                                      mp.from, mp.rx_snr, mp.rx_rssi, (mp.hop_start-mp.hop_limit)
-                                  );
-                }
-            }
-
-            if (nchars > 0 && nchars <= replyStringSize) {
-                rp->decoded.payload.size = strlen(replyString);
-                memcpy(rp->decoded.payload.bytes, replyString, rp->decoded.payload.size);
-                if (airTime->isTxAllowedChannelUtil(true)) {
-                    service->sendToMesh(rp);
-                    LOG_INFO("ExperimentModule: reply send?");
-                } else {
-                    LOG_WARN("ExperimentModule: can not send, air time exceeded");
-                }
-            } else {
-                LOG_INFO("ExperimentModule: Buffer overflow? %d available: %d", nchars, replyStringSize);
-            }
-        } else {
-            LOG_INFO("ExperimentModule: faild to allocate...");
-        }
+        handlePingMessage(mp);
+    } else if (startsWith(p.payload.bytes, "test")) {
+        handleTestMessage(mp);
     }
-    
+
     return ProcessMessage::CONTINUE;
 }
 
@@ -92,9 +35,129 @@ bool ExperimentModule::wantPacket(const meshtastic_MeshPacket *p)
 }
 
 int ExperimentModule::startsWith(const unsigned char *str, const char *prefix) {
-    while (*prefix && std::tolower((unsigned char)*prefix) == std::tolower((unsigned char)*str)) {
-        prefix++;
-        str++;
+    while (*prefix) {
+        if (tolower((unsigned char)*str++) != tolower((unsigned char)*prefix++)) {
+            return 0;
+        }
     }
-    return *prefix == '\0';
+    return 1;
+}
+
+void ExperimentModule::handlePingMessage(const meshtastic_MeshPacket &mp) {
+    sendReplyMessage(mp, "pong 🏓");
+}
+
+void ExperimentModule::handleTestMessage(const meshtastic_MeshPacket &mp) {
+    sendReplyMessage(mp, "check ✅");
+}
+
+void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage) {
+    meshtastic_MeshPacket *p = allocDataPacket();
+    if (!p) {
+        LOG_ERROR("ExperimentModule: Failed to allocate meshtastic_MeshPacket!");
+        return;
+    }
+
+    // per default reply to sender directly
+    p->to = mp.from;
+    p->decoded.want_response = false;
+    // TODO: set priority?
+    // rp->priority = meshtastic_MeshPacket_Priority_DEFAULT;
+    p->priority = mp.priority;
+    p->channel = mp.channel;
+    p->want_ack = false;
+
+    // prefix for message
+    const static char *messagePrefix = "🤖";
+    // buffer for the radio stats
+    static char signalString[EXPMOD_MAX_SIGNAL_STRING_SIZE];
+    size_t signalStringSize = sizeof(signalString);
+    // buffer for the hops text
+    static char hopsString[EXPMOD_MAX_HOPS_STRING_SIZE];
+    size_t hopsStringSize = sizeof(hopsString);
+    // buffer for the reply message
+    static char replyString[MAX_LORA_PAYLOAD_LEN+1];
+    size_t replyStringSize = sizeof(replyString);
+    int nchars = 0;
+
+    // assemble text for radio stats
+    nchars = snprintf(
+                      signalString,
+                      signalStringSize,
+                      "SNR %.2fdB RSSI %idBm",
+                      mp.rx_snr, mp.rx_rssi
+    );
+    if (nchars <= 0 || nchars > signalStringSize) {
+        LOG_ERROR("ExperimentModule: Failed to assemble signal string size: %d vs %d", signalStringSize, nchars);
+        return;
+    }
+
+    // assemble hop text
+    if (mp.hop_start - mp.hop_limit) {
+        nchars = snprintf(
+            hopsString,
+            hopsStringSize,
+            "via %u hops",
+            (mp.hop_start-mp.hop_limit)
+        );
+    } else {
+        // could also us strncpy
+        nchars = snprintf(
+            hopsString,
+            hopsStringSize,
+            "%s", "direct"
+        );
+    }
+    if (nchars <= 0 || nchars > signalStringSize) {
+        LOG_ERROR("ExperimentModule: Failed to assemble hops string size: %d vs %d", hopsStringSize, nchars);
+        return;
+    }
+
+    // private message
+    if (isToUs(&mp)) {
+        nchars = snprintf(
+            replyString,
+            replyStringSize,
+            "%s %s\n%s %s",
+            messagePrefix, replyMessage, signalString, hopsString
+        );
+    // broadcast (channel) message
+    } else if (!isFromUs(&mp) && mp.to == NODENUM_BROADCAST) {
+        p->to = NODENUM_BROADCAST;
+        meshtastic_NodeInfoLite *n = nodeDB->getMeshNode(getFrom(&mp));
+        if (n != NULL) {
+            nchars = snprintf(
+                replyString,
+                replyStringSize,
+                "%s @%s %s\n%s %s",
+                messagePrefix, n->user.short_name, replyMessage, signalString, hopsString
+            );
+        } else {
+            LOG_WARN("ExperimentModule: Node (0x%0x) not in NodeDB", mp.from);
+            nchars = snprintf(
+                replyString,
+                replyStringSize,
+                "%s @!%0x %s\n%s %s",
+                messagePrefix, mp.from, replyMessage, signalString, hopsString
+            );
+        }
+    // handle edge cases
+    } else {
+        LOG_WARN("ExperimentModule: Unhandled message. Ignoring");
+        return;
+    }
+
+    // send the message
+    if (nchars > 0 && nchars <= replyStringSize) {
+        p->decoded.payload.size = strlen(replyString);
+        memcpy(p->decoded.payload.bytes, replyString, p->decoded.payload.size);
+        if (airTime->isTxAllowedChannelUtil(true)) {
+            service->sendToMesh(p);
+            LOG_INFO("ExperimentModule: reply send");
+        } else {
+            LOG_WARN("ExperimentModule: can not send, air time exceeded");
+        }
+    } else {
+        LOG_ERROR("ExperimentModule: Failed to assemble reply string size: %d vs %d", replyStringSize, nchars);
+    }
 }
