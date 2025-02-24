@@ -62,8 +62,10 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
     p->to = mp.from;
     p->decoded.want_response = false;
     // TODO: set priority?
-    // rp->priority = meshtastic_MeshPacket_Priority_DEFAULT;
-    p->priority = mp.priority;
+    p->priority = meshtastic_MeshPacket_Priority_DEFAULT;
+    // p->priority = mp.priority;
+    // NOTE: may leave unset?
+    // https://github.com/meshtastic/firmware/blob/7d8e0ede6ccb4c621c70589834562276cb128687/src/mesh/generated/meshtastic/mesh.pb.h#L706
     p->channel = mp.channel;
     p->want_ack = false;
 
