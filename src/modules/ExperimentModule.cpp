@@ -95,20 +95,27 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
     }
 
     // assemble hop text
-    if (mp.hop_start - mp.hop_limit) {
+    if ((mp.hop_start - mp.hop_limit) > 0) {
         nchars = snprintf(
             hopsString,
             hopsStringSize,
             "via %u hops",
             (mp.hop_start-mp.hop_limit)
         );
-    } else {
+    } else if ((mp.hop_start - mp.hop_limit) == 0) {
         // could also us strncpy
         nchars = snprintf(
             hopsString,
             hopsStringSize,
             "%s", "direct"
         );
+    } else {
+        nchars = snprintf(
+            hopsString,
+            hopsStringSize,
+            "%s", "via ? hops"
+        );
+        LOG_WARN("ExperimentModule: Strange: hop_start: %u, hop_limit: %u", mp.hop_start, mp.hop_limit);
     }
     if (nchars <= 0 || nchars > signalStringSize) {
         LOG_ERROR("ExperimentModule: Failed to assemble hops string size: %d vs %d", hopsStringSize, nchars);
