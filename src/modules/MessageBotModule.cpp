@@ -1,4 +1,4 @@
-#include "ExperimentModule.h"
+#include "MessageBotModule.h"
 #include "DebugConfiguration.h"
 #include "MeshModule.h"
 #include "MeshService.h"
@@ -12,13 +12,13 @@
 #include <cstddef>
 
 
-#define EXPMOD_MAX_SIGNAL_STRING_SIZE 50
-#define EXPMOD_MAX_HOPS_STRING_SIZE 20
+#define MSGBOTMOD_MAX_SIGNAL_STRING_SIZE 50
+#define MSGBOTMOD_MAX_HOPS_STRING_SIZE 20
 
-ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
+ProcessMessage MessageBotModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
     auto &p = mp.decoded;
-    LOG_INFO("ExperimentModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
+    LOG_INFO("MessageBotModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
 
     if (startsWith(p.payload.bytes, "ping")) {
         handlePingMessage(mp);
@@ -29,12 +29,12 @@ ProcessMessage ExperimentModule::handleReceived(const meshtastic_MeshPacket &mp)
     return ProcessMessage::CONTINUE;
 }
 
-bool ExperimentModule::wantPacket(const meshtastic_MeshPacket *p)
+bool MessageBotModule::wantPacket(const meshtastic_MeshPacket *p)
 {
     return MeshService::isTextPayload(p);
 }
 
-int ExperimentModule::startsWith(const unsigned char *str, const char *prefix) {
+int MessageBotModule::startsWith(const unsigned char *str, const char *prefix) {
     while (*prefix) {
         if (tolower((unsigned char)*str++) != tolower((unsigned char)*prefix++)) {
             return 0;
@@ -43,18 +43,18 @@ int ExperimentModule::startsWith(const unsigned char *str, const char *prefix) {
     return 1;
 }
 
-void ExperimentModule::handlePingMessage(const meshtastic_MeshPacket &mp) {
+void MessageBotModule::handlePingMessage(const meshtastic_MeshPacket &mp) {
     sendReplyMessage(mp, "pong 🏓");
 }
 
-void ExperimentModule::handleTestMessage(const meshtastic_MeshPacket &mp) {
+void MessageBotModule::handleTestMessage(const meshtastic_MeshPacket &mp) {
     sendReplyMessage(mp, "check ✅");
 }
 
-void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage) {
+void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage) {
     meshtastic_MeshPacket *p = allocDataPacket();
     if (!p) {
-        LOG_ERROR("ExperimentModule: Failed to allocate meshtastic_MeshPacket!");
+        LOG_ERROR("MessageBotModule: Failed to allocate meshtastic_MeshPacket!");
         return;
     }
 
@@ -72,10 +72,10 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
     // prefix for message
     const static char *messagePrefix = "🤖";
     // buffer for the radio stats
-    static char signalString[EXPMOD_MAX_SIGNAL_STRING_SIZE];
+    static char signalString[MSGBOTMOD_MAX_SIGNAL_STRING_SIZE];
     size_t signalStringSize = sizeof(signalString);
     // buffer for the hops text
-    static char hopsString[EXPMOD_MAX_HOPS_STRING_SIZE];
+    static char hopsString[MSGBOTMOD_MAX_HOPS_STRING_SIZE];
     size_t hopsStringSize = sizeof(hopsString);
     // buffer for the reply message
     static char replyString[MAX_LORA_PAYLOAD_LEN+1];
@@ -90,7 +90,7 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
                       mp.rx_snr, mp.rx_rssi
     );
     if (nchars <= 0 || nchars > signalStringSize) {
-        LOG_ERROR("ExperimentModule: Failed to assemble signal string size: %d vs %d", signalStringSize, nchars);
+        LOG_ERROR("MessageBotModule: Failed to assemble signal string size: %d vs %d", signalStringSize, nchars);
         return;
     }
 
@@ -115,10 +115,10 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
             hopsStringSize,
             "%s", "via ? hops"
         );
-        LOG_WARN("ExperimentModule: Strange: hop_start: %u, hop_limit: %u", mp.hop_start, mp.hop_limit);
+        LOG_WARN("MessageBotModule: Strange: hop_start: %u, hop_limit: %u", mp.hop_start, mp.hop_limit);
     }
     if (nchars <= 0 || nchars > signalStringSize) {
-        LOG_ERROR("ExperimentModule: Failed to assemble hops string size: %d vs %d", hopsStringSize, nchars);
+        LOG_ERROR("MessageBotModule: Failed to assemble hops string size: %d vs %d", hopsStringSize, nchars);
         return;
     }
 
@@ -142,7 +142,7 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
                 messagePrefix, n->user.short_name, replyMessage, signalString, hopsString
             );
         } else {
-            LOG_WARN("ExperimentModule: Node (0x%0x) not in NodeDB", mp.from);
+            LOG_WARN("MessageBotModule: Node (0x%0x) not in NodeDB", mp.from);
             nchars = snprintf(
                 replyString,
                 replyStringSize,
@@ -152,7 +152,7 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
         }
     // handle edge cases
     } else {
-        LOG_WARN("ExperimentModule: Unhandled message. Ignoring");
+        LOG_WARN("MessageBotModule: Unhandled message. Ignoring");
         return;
     }
 
@@ -162,11 +162,11 @@ void ExperimentModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
         memcpy(p->decoded.payload.bytes, replyString, p->decoded.payload.size);
         if (airTime->isTxAllowedChannelUtil(true)) {
             service->sendToMesh(p);
-            LOG_INFO("ExperimentModule: reply send");
+            LOG_INFO("MessageBotModule: reply send");
         } else {
-            LOG_WARN("ExperimentModule: can not send, air time exceeded");
+            LOG_WARN("MessageBotModule: can not send, air time exceeded");
         }
     } else {
-        LOG_ERROR("ExperimentModule: Failed to assemble reply string size: %d vs %d", replyStringSize, nchars);
+        LOG_ERROR("MessageBotModule: Failed to assemble reply string size: %d vs %d", replyStringSize, nchars);
     }
 }

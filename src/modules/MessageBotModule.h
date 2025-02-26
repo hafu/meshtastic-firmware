@@ -6,13 +6,13 @@
 /**
  * A simple example module that just replies with "Message received" to any message it receives.
  */
-class ExperimentModule : public SinglePortModule
+class MessageBotModule : public SinglePortModule
 {
   public:
     /** Constructor
      * name is for debugging output
      */
-    ExperimentModule() : SinglePortModule("experiment", meshtastic_PortNum_TEXT_MESSAGE_APP) {}
+    MessageBotModule() : SinglePortModule("MessageBotModule", meshtastic_PortNum_TEXT_MESSAGE_APP) {}
 
   protected:
     /** For reply module we do all of our processing in the (normally optional)
