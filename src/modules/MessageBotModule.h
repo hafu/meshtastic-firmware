@@ -27,9 +27,9 @@ class MessageBotModule : public SinglePortModule
     virtual bool wantPacket(const meshtastic_MeshPacket *p) override;
 
     /** Check if *str starts with *prefix, case insensitive
-     * TODO: bool
+     * @return true if *str starts with *prefix (case insensitive)
      */
-    int startsWith(const unsigned char *str, const char *prefix);
+    bool startsWith(const unsigned char *str, const char *prefix);
 
     /** 
      * Wrapper around sendReplyMessage

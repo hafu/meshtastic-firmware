@@ -34,13 +34,13 @@ bool MessageBotModule::wantPacket(const meshtastic_MeshPacket *p)
     return MeshService::isTextPayload(p);
 }
 
-int MessageBotModule::startsWith(const unsigned char *str, const char *prefix) {
+bool MessageBotModule::startsWith(const unsigned char *str, const char *prefix) {
     while (*prefix) {
         if (tolower((unsigned char)*str++) != tolower((unsigned char)*prefix++)) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 void MessageBotModule::handlePingMessage(const meshtastic_MeshPacket &mp) {
