@@ -4,7 +4,7 @@
 #include "meshtastic/portnums.pb.h"
 
 /**
- * A simple example module that just replies with "Message received" to any message it receives.
+ * A simple bot which replies to certain messages with a response.
  */
 class MessageBotModule : public SinglePortModule
 {
@@ -15,14 +15,34 @@ class MessageBotModule : public SinglePortModule
     MessageBotModule() : SinglePortModule("MessageBotModule", meshtastic_PortNum_TEXT_MESSAGE_APP) {}
 
   protected:
-    /** For reply module we do all of our processing in the (normally optional)
-     * want_replies handling
-     */
-    // virtual meshtastic_MeshPacket *allocReply() override;
+    /** Called to handle a particular incoming message
+    @return ProcessMessage::STOP if you've guaranteed you've handled this message and no other handlers should be considered for
+    it
+    */
     virtual ProcessMessage handleReceived(const meshtastic_MeshPacket &mp) override;
+
+    /**
+     * @return true if you want to receive the specified portnum
+     */    
     virtual bool wantPacket(const meshtastic_MeshPacket *p) override;
+
+    /** Check if *str starts with *prefix, case insensitive
+     * TODO: bool
+     */
     int startsWith(const unsigned char *str, const char *prefix);
+
+    /** 
+     * Wrapper around sendReplyMessage
+     */
     void handlePingMessage(const meshtastic_MeshPacket &mp);
+
+    /**
+     * Wrapper around sendReplyMessage
+     */
     void handleTestMessage(const meshtastic_MeshPacket &mp);
+
+    /**
+     * Send a basic reply message
+     */
     void sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage);
 };
