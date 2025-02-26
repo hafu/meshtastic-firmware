@@ -90,7 +90,10 @@
 #include "modules/DropzoneModule.h"
 #endif
 
+#if !MESHTASTIC_EXCLUDE_MESSAGEBOT
 #include "modules/MessageBotModule.h"
+#endif
+
 /**
  * Create module instances here.  If you are adding a new module, you must 'new' it here (or somewhere else)
  */
@@ -142,7 +145,11 @@ void setupModules()
 #endif
         // Example: Put your module here
         // new ReplyModule();
+
+#if !MESHTASTIC_EXCLUDE_MESSAGEBOT
         new MessageBotModule();
+#endif
+
 #if (HAS_BUTTON || ARCH_PORTDUINO) && !MESHTASTIC_EXCLUDE_INPUTBROKER
         rotaryEncoderInterruptImpl1 = new RotaryEncoderInterruptImpl1();
         if (!rotaryEncoderInterruptImpl1->init()) {
