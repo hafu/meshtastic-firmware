@@ -45,4 +45,9 @@ class MessageBotModule : public SinglePortModule
      * Send a basic reply message
      */
     void sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage);
+
+    /**
+     * Send help reply message
+     */
+    void sendHelpReplyMessage(const meshtastic_MeshPacket &mp);
 };

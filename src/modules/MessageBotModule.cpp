@@ -20,7 +20,9 @@ ProcessMessage MessageBotModule::handleReceived(const meshtastic_MeshPacket &mp)
     auto &p = mp.decoded;
     LOG_INFO("MessageBotModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
 
-    if (startsWith(p.payload.bytes, "ping")) {
+    if (isToUs(&mp) && (startsWith(p.payload.bytes, "help") || startsWith(p.payload.bytes, "hilfe"))) {
+        sendHelpReplyMessage(mp);
+    } else if (startsWith(p.payload.bytes, "ping")) {
         handlePingMessage(mp);
     } else if (startsWith(p.payload.bytes, "test")) {
         handleTestMessage(mp);
@@ -168,5 +170,37 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
         }
     } else {
         LOG_ERROR("MessageBotModule: Failed to assemble reply string size: %d vs %d", replyStringSize, nchars);
+    }
+}
+
+void MessageBotModule::sendHelpReplyMessage(const meshtastic_MeshPacket &mp) {
+    // TODO: move to function, duplicate code
+    meshtastic_MeshPacket *p = allocDataPacket();
+    if (!p) {
+        LOG_ERROR("MessageBotModule: Failed to allocate meshtastic_MeshPacket!");
+        return;
+    }
+    const char *helpText =
+        "I am Bot 🤖 running as module directly in the Meshtastic firmware. I "
+        "react on messages starting with \"ping\" or \"test\". No human will "
+        "read direct messages delivered to me.";
+
+
+    // send to sender and use same settings as sender
+    p->to = mp.from;
+    p->decoded.want_response = mp.decoded.want_response;
+    p->priority = mp.priority;
+    p->channel = mp.channel;
+    p->want_ack = mp.want_ack;
+
+    p->decoded.payload.size = strlen(helpText);
+
+    // TODO: move to function, duplicate code
+    memcpy(p->decoded.payload.bytes, helpText, p->decoded.payload.size);
+    if (airTime->isTxAllowedChannelUtil(true)) {
+        service->sendToMesh(p);
+        LOG_INFO("MessageBotModule: reply send");
+    } else {
+        LOG_WARN("MessageBotModule: can not send, air time exceeded");
     }
 }
