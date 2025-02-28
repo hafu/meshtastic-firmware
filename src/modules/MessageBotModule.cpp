@@ -5,6 +5,7 @@
 #include "MeshTypes.h"
 #include "NodeDB.h"
 #include "RadioInterface.h"
+#include "gps/RTC.h"
 #include "configuration.h"
 #include "main.h"
 #include "meshtastic/mesh.pb.h"
@@ -14,6 +15,7 @@
 
 #define MSGBOTMOD_MAX_SIGNAL_STRING_SIZE 50
 #define MSGBOTMOD_MAX_HOPS_STRING_SIZE 20
+#define MSGBOTMOD_MAX_TIMESTAMP_STRING_SIZE 30
 
 ProcessMessage MessageBotModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
@@ -92,6 +94,9 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
     // buffer for the hops text
     static char hopsString[MSGBOTMOD_MAX_HOPS_STRING_SIZE];
     size_t hopsStringSize = sizeof(hopsString);
+    // buffer to store the timestamp (local time)
+    static char timestampString[MSGBOTMOD_MAX_TIMESTAMP_STRING_SIZE] = "";
+    size_t timestampStringSize = sizeof(timestampString);
     // buffer for the reply message
     static char replyString[MAX_LORA_PAYLOAD_LEN+1];
     size_t replyStringSize = sizeof(replyString);
@@ -137,13 +142,37 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
         return;
     }
 
+    // assemble timestamp string
+    if (mp.rx_time > 0) {
+        long hms = mp.rx_time % SEC_PER_DAY;
+        hms = (hms + SEC_PER_DAY) % SEC_PER_DAY;
+
+        int hour = hms / SEC_PER_HOUR;
+        int min = (hms % SEC_PER_HOUR) / SEC_PER_MIN;
+        int sec = (hms % SEC_PER_HOUR) % SEC_PER_MIN;
+
+        nchars = snprintf(
+            timestampString,
+            timestampStringSize,
+            " · rx_time (local): %02d:%02d:%02d",
+            hour, min, sec
+        );
+
+        if (nchars <= 0 || nchars > timestampStringSize) {
+            LOG_WARN("MessageBotModule: Failed to assemble time string size: %d vs %d", timestampStringSize, nchars);
+            // we keep going, but ignore the time and clear the buffer
+            memset(timestampString, 0, timestampStringSize);
+            timestampString[0] = '\0';
+        }
+    }
+
     // private message
     if (isToUs(&mp)) {
         nchars = snprintf(
             replyString,
             replyStringSize,
-            "%s %s\n%s %s",
-            messagePrefix, replyMessage, signalString, hopsString
+            "%s %s · %s %s%s",
+            messagePrefix, replyMessage, signalString, hopsString, timestampString
         );
     // broadcast (channel) message
     } else if (!isFromUs(&mp) && mp.to == NODENUM_BROADCAST) {
@@ -153,16 +182,16 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
             nchars = snprintf(
                 replyString,
                 replyStringSize,
-                "%s @%s %s\n%s %s",
-                messagePrefix, n->user.short_name, replyMessage, signalString, hopsString
+                "%s @%s %s · %s %s%s",
+                messagePrefix, n->user.short_name, replyMessage, signalString, hopsString, timestampString
             );
         } else {
             LOG_WARN("MessageBotModule: Node (0x%0x) not in NodeDB", mp.from);
             nchars = snprintf(
                 replyString,
                 replyStringSize,
-                "%s @!%0x %s\n%s %s",
-                messagePrefix, mp.from, replyMessage, signalString, hopsString
+                "%s @!%0x %s · %s %s%s",
+                messagePrefix, mp.from, replyMessage, signalString, hopsString, timestampString
             );
         }
     // handle edge cases
