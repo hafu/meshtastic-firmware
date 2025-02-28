@@ -54,21 +54,17 @@ void MessageBotModule::handleTestMessage(const meshtastic_MeshPacket &mp) {
 }
 
 void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage) {
-    meshtastic_MeshPacket *p = allocDataPacket();
-    if (!p) {
-        LOG_ERROR("MessageBotModule: Failed to allocate meshtastic_MeshPacket!");
+    meshtastic_MeshPacket *p = allocAndConfReplyPacket(mp);
+    if (p == nullptr) {
         return;
     }
 
-    // per default reply to sender directly
-    p->to = mp.from;
     p->decoded.want_response = false;
     // TODO: set priority?
     p->priority = meshtastic_MeshPacket_Priority_DEFAULT;
     // p->priority = mp.priority;
     // NOTE: may leave unset?
     // https://github.com/meshtastic/firmware/blob/7d8e0ede6ccb4c621c70589834562276cb128687/src/mesh/generated/meshtastic/mesh.pb.h#L706
-    p->channel = mp.channel;
     p->want_ack = false;
 
     // prefix for message
@@ -160,24 +156,15 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
 
     // send the message
     if (nchars > 0 && nchars <= replyStringSize) {
-        p->decoded.payload.size = strlen(replyString);
-        memcpy(p->decoded.payload.bytes, replyString, p->decoded.payload.size);
-        if (airTime->isTxAllowedChannelUtil(true)) {
-            service->sendToMesh(p);
-            LOG_INFO("MessageBotModule: reply send");
-        } else {
-            LOG_WARN("MessageBotModule: can not send, air time exceeded");
-        }
+        sendReplyMessage(p, replyString);
     } else {
         LOG_ERROR("MessageBotModule: Failed to assemble reply string size: %d vs %d", replyStringSize, nchars);
     }
 }
 
 void MessageBotModule::sendHelpReplyMessage(const meshtastic_MeshPacket &mp) {
-    // TODO: move to function, duplicate code
-    meshtastic_MeshPacket *p = allocDataPacket();
-    if (!p) {
-        LOG_ERROR("MessageBotModule: Failed to allocate meshtastic_MeshPacket!");
+    meshtastic_MeshPacket *p = allocAndConfReplyPacket(mp);
+    if (p == nullptr) {
         return;
     }
     const char *helpText =
@@ -185,18 +172,37 @@ void MessageBotModule::sendHelpReplyMessage(const meshtastic_MeshPacket &mp) {
         "react on messages starting with \"ping\" or \"test\". No human will "
         "read direct messages delivered to me.";
 
+    sendReplyMessage(p, helpText);
+}
 
-    // send to sender and use same settings as sender
+meshtastic_MeshPacket *MessageBotModule::allocAndConfReplyPacket(const meshtastic_MeshPacket &mp) {
+    meshtastic_MeshPacket *p = allocDataPacket();
+    if (!p) {
+        LOG_ERROR("MessageBotModule: Failed to allocate meshtastic_MeshPacket!");
+        return nullptr;
+    }
+
+    // back to sender with same parameters
     p->to = mp.from;
     p->decoded.want_response = mp.decoded.want_response;
-    p->priority = mp.priority;
     p->channel = mp.channel;
+    p->priority = mp.priority;
     p->want_ack = mp.want_ack;
+    return p;
+}
 
-    p->decoded.payload.size = strlen(helpText);
+void MessageBotModule::sendReplyMessage(meshtastic_MeshPacket *p, const char *payload) {
+    if (p == nullptr) {
+        LOG_ERROR("MessageBotModule: Null packet pointer");
+        return;
+    }
+    if (payload == nullptr) {
+        LOG_ERROR("MessageBotModule: Null payload pointer");
+        return;
+    }
 
-    // TODO: move to function, duplicate code
-    memcpy(p->decoded.payload.bytes, helpText, p->decoded.payload.size);
+    p->decoded.payload.size = strlen(payload);
+    memcpy(p->decoded.payload.bytes, payload, p->decoded.payload.size);
     if (airTime->isTxAllowedChannelUtil(true)) {
         service->sendToMesh(p);
         LOG_INFO("MessageBotModule: reply send");

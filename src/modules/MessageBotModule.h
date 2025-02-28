@@ -50,4 +50,15 @@ class MessageBotModule : public SinglePortModule
      * Send help reply message
      */
     void sendHelpReplyMessage(const meshtastic_MeshPacket &mp);
+
+
+    /** Allocate and configur mesh packet with sane defaults
+     * @return new meshtastic_MeshPacket based provided packet 
+     */
+    meshtastic_MeshPacket *allocAndConfReplyPacket(const meshtastic_MeshPacket &mp);
+
+    /**
+     * Send reply message with packet p and payload into mesh.
+     */
+    void sendReplyMessage(meshtastic_MeshPacket *p, const char *payload);
 };
