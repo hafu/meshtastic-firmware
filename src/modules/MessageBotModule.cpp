@@ -18,7 +18,24 @@
 ProcessMessage MessageBotModule::handleReceived(const meshtastic_MeshPacket &mp)
 {
     auto &p = mp.decoded;
-    LOG_INFO("MessageBotModule: from=0x%0x, to=0x%0x, channel=%u, rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, hop_start=%u, id=0x%x, msg=%.*s", mp.from, mp.to, mp.channel, mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi, mp.hop_start, mp.id, p.payload.size, p.payload.bytes);
+    LOG_INFO(
+         "MessageBotModule: from=0x%0x, to=0x%0x, channel=%u, "
+         "rx_time=0x%0x, rx_snr=%f, hop_limit=%u, rx_rssi=%i, "
+         "hop_start=%u, id=0x%x",
+         mp.from, mp.to, mp.channel,
+         mp.rx_time, mp.rx_snr, mp.hop_limit, mp.rx_rssi,
+         mp.hop_start, mp.id
+    );
+    // LOG_INFO(
+    //     "MessageBotModule: want_ack=%d priority=%d delayed=%d "
+    //     "via_mqtt=%d pki_encrypted=%d",
+    //     mp.want_ack, mp.priority, mp.delayed,
+    //     mp.via_mqtt, mp.pki_encrypted
+    // );
+    // LOG_INFO(
+    //     "MessageBotModule: decoded.portnum=%d .want_response=%d",
+    //     mp.decoded.portnum, mp.decoded.want_response
+    // );
 
     if (isToUs(&mp) && (startsWith(p.payload.bytes, "help") || startsWith(p.payload.bytes, "hilfe"))) {
         sendHelpReplyMessage(mp);
