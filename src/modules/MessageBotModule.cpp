@@ -101,7 +101,7 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
     nchars = snprintf(
                       signalString,
                       signalStringSize,
-                      "SNR %.2fdB RSSI %idBm",
+                      "Last hop: SNR %.2fdB RSSI %idBm",
                       mp.rx_snr, mp.rx_rssi
     );
     if (nchars <= 0 || nchars > signalStringSize) {
