@@ -6,10 +6,7 @@
 #include "NodeDB.h"
 #include "RadioInterface.h"
 #include "gps/RTC.h"
-#include "configuration.h"
-#include "main.h"
 #include "meshtastic/mesh.pb.h"
-#include "modules/NodeInfoModule.h"
 #include <cstddef>
 
 
