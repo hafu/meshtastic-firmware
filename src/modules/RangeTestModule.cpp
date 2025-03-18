@@ -28,6 +28,7 @@ RangeTestModuleRadio *rangeTestModuleRadio;
 RangeTestModule::RangeTestModule() : concurrency::OSThread("RangeTest") {}
 
 uint32_t packetSequence = 0;
+uint32_t airTimeExceededCounter = 0;
 
 int32_t RangeTestModule::runOnce()
 {
@@ -79,10 +80,14 @@ int32_t RangeTestModule::runOnce()
                 LOG_INFO("gpsStatus->getHasLock()      %d", gpsStatus->getHasLock());
                 LOG_INFO("gpsStatus->getDOP()          %d", gpsStatus->getDOP());
                 LOG_INFO("fixed_position()             %d", config.position.fixed_position);
+                LOG_INFO("packetSequence               %u", packetSequence);
+                LOG_INFO("airTimeExceededCounter       %u", airTimeExceededCounter);
 
                 // Only send packets if the channel is less than 25% utilized.
                 if (airTime->isTxAllowedChannelUtil(true)) {
                     rangeTestModuleRadio->sendPayload();
+                } else {
+                    airTimeExceededCounter++;
                 }
 
                 // If we have been running for more than 8 hours, turn module back off
@@ -122,7 +127,8 @@ void RangeTestModuleRadio::sendPayload(NodeNum dest, bool wantReplies)
     packetSequence++;
 
     static char heartbeatString[MAX_LORA_PAYLOAD_LEN + 1];
-    snprintf(heartbeatString, sizeof(heartbeatString), "seq %u", packetSequence);
+    // snprintf(heartbeatString, sizeof(heartbeatString), "seq %u", packetSequence);
+    snprintf(heartbeatString, sizeof(heartbeatString), "seq %u ate %u", packetSequence, airTimeExceededCounter);
 
     p->decoded.payload.size = strlen(heartbeatString); // You must specify how many bytes are in the reply
     memcpy(p->decoded.payload.bytes, heartbeatString, p->decoded.payload.size);
