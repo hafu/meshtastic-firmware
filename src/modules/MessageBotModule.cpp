@@ -38,6 +38,8 @@ ProcessMessage MessageBotModule::handleReceived(const meshtastic_MeshPacket &mp)
 
     if (isToUs(&mp) && (startsWith(p.payload.bytes, "help") || startsWith(p.payload.bytes, "hilfe"))) {
         sendHelpReplyMessage(mp);
+    } else if (isToUs(&mp) && startsWith(p.payload.bytes, "stats")) {
+        sendStatsMessage(mp);
     } else if (startsWith(p.payload.bytes, "ping")) {
         handlePingMessage(mp);
     } else if (startsWith(p.payload.bytes, "test")) {
@@ -63,10 +65,20 @@ bool MessageBotModule::startsWith(const unsigned char *str, const char *prefix) 
 
 void MessageBotModule::handlePingMessage(const meshtastic_MeshPacket &mp) {
     sendReplyMessage(mp, "pong 🏓");
+    if (mp.to == NODENUM_BROADCAST) {
+        stats.channelPingMessages++;
+    } else {
+        stats.privatePingMessages++;
+    }
 }
 
 void MessageBotModule::handleTestMessage(const meshtastic_MeshPacket &mp) {
     sendReplyMessage(mp, "check ✅");
+    if (mp.to == NODENUM_BROADCAST) {
+        stats.channelTestMessages++;
+    } else {
+        stats.privateTestMessages++;
+    }
 }
 
 void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const char *replyMessage) {
@@ -218,6 +230,39 @@ void MessageBotModule::sendHelpReplyMessage(const meshtastic_MeshPacket &mp) {
     sendReplyMessage(p, helpText);
 }
 
+void MessageBotModule::sendStatsMessage(const meshtastic_MeshPacket &mp) {
+    meshtastic_MeshPacket *p = allocAndConfReplyPacket(mp);
+    if (p == nullptr) {
+        return;
+    }
+    static char replyString[MAX_LORA_PAYLOAD_LEN+1];
+    size_t replyStringSize = sizeof(replyString);
+    int nchars = 0;
+    // RX priv ping: 123456 \nRX priv test: 123456 \nRX chan ping: 12456 \nRX chan test: 123456 \nTX msgs: 123456 \nAirTimeExceeded: 123456
+    nchars = snprintf(
+        replyString,
+        replyStringSize,
+        "TX msgs: %u \n"
+        "RX priv ping: %u \n"
+        "RX priv test: %u \n"
+        "RX chan ping: %u \n"
+        "RX chan test: %u \n"
+        "AirTimeExceeded: %u",
+        stats.repliesSend,
+        stats.privatePingMessages,
+        stats.privateTestMessages,
+        stats.channelPingMessages,
+        stats.channelTestMessages,
+        stats.airTimeExceeded
+    );
+
+    if (nchars > 0 && nchars <= replyStringSize) {
+        sendReplyMessage(p, replyString);
+    } else {
+        LOG_ERROR("MessageBotModule: Failed to assemble reply string size: %d vs %d", replyStringSize, nchars);
+    }
+}
+
 meshtastic_MeshPacket *MessageBotModule::allocAndConfReplyPacket(const meshtastic_MeshPacket &mp) {
     meshtastic_MeshPacket *p = allocDataPacket();
     if (!p) {
@@ -249,7 +294,9 @@ void MessageBotModule::sendReplyMessage(meshtastic_MeshPacket *p, const char *pa
     if (airTime->isTxAllowedChannelUtil(true)) {
         service->sendToMesh(p);
         LOG_INFO("MessageBotModule: reply send");
+        stats.repliesSend++;
     } else {
         LOG_WARN("MessageBotModule: can not send, air time exceeded");
+        stats.airTimeExceeded++;
     }
 }
