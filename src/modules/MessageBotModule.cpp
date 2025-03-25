@@ -180,8 +180,8 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
         nchars = snprintf(
             replyString,
             replyStringSize,
-            "%s %s · %s %s%s",
-            messagePrefix, replyMessage, signalString, hopsString, timestampString
+            "%s %s · ChUtil %.1f%% · %s %s%s",
+            messagePrefix, replyMessage, airTime->channelUtilizationPercent(), signalString, hopsString, timestampString
         );
     // broadcast (channel) message
     } else if (!isFromUs(&mp) && mp.to == NODENUM_BROADCAST) {
@@ -191,8 +191,8 @@ void MessageBotModule::sendReplyMessage(const meshtastic_MeshPacket &mp, const c
             nchars = snprintf(
                 replyString,
                 replyStringSize,
-                "%s @%s %s · %s %s%s",
-                messagePrefix, n->user.short_name, replyMessage, signalString, hopsString, timestampString
+                "%s @%s %s · ChUtil %.1f%% · %s %s%s",
+                messagePrefix, n->user.short_name, replyMessage, airTime->channelUtilizationPercent(), signalString, hopsString, timestampString
             );
         } else {
             LOG_WARN("MessageBotModule: Node (0x%0x) not in NodeDB", mp.from);
