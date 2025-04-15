@@ -14,8 +14,16 @@
 #include "main.h"
 #include <Throttle.h>
 
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
+// sensors
+#include "Sensor/PMSA003ISensor.h"
+
+PMSA003ISensor pmsa003iSensor;
+#endif
+
 int32_t AirQualityTelemetryModule::runOnce()
 {
+    uint32_t result = UINT32_MAX;
     /*
         Uncomment the preferences below if you want to use the module
         without having to configure it from the PythonAPI or WebUI.
@@ -34,30 +42,12 @@ int32_t AirQualityTelemetryModule::runOnce()
 
         if (moduleConfig.telemetry.air_quality_enabled) {
             LOG_INFO("Air quality Telemetry: init");
-            if (!aqi.begin_I2C()) {
-#ifndef I2C_NO_RESCAN
-                LOG_WARN("Could not establish i2c connection to AQI sensor. Rescan");
-                // rescan for late arriving sensors. AQI Module starts about 10 seconds into the boot so this is plenty.
-                uint8_t i2caddr_scan[] = {PMSA0031_ADDR};
-                uint8_t i2caddr_asize = 1;
-                auto i2cScanner = std::unique_ptr<ScanI2CTwoWire>(new ScanI2CTwoWire());
-#if defined(I2C_SDA1)
-                i2cScanner->scanPort(ScanI2C::I2CPort::WIRE1, i2caddr_scan, i2caddr_asize);
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
+            if (pmsa003iSensor.hasSensor())
+                result = pmsa003iSensor.runOnce();
 #endif
-                i2cScanner->scanPort(ScanI2C::I2CPort::WIRE, i2caddr_scan, i2caddr_asize);
-                auto found = i2cScanner->find(ScanI2C::DeviceType::PMSA0031);
-                if (found.type != ScanI2C::DeviceType::NONE) {
-                    nodeTelemetrySensorsMap[meshtastic_TelemetrySensorType_PMSA003I].first = found.address.address;
-                    nodeTelemetrySensorsMap[meshtastic_TelemetrySensorType_PMSA003I].second =
-                        i2cScanner->fetchI2CBus(found.address);
-                    return setStartDelay();
-                }
-#endif
-                return disable();
-            }
-            return setStartDelay();
         }
-        return disable();
+        return result == UINT32_MAX ? disable() : setStartDelay();
     } else {
         // if we somehow got to a second run of this module with measurement disabled, then just wait forever
         if (!moduleConfig.telemetry.air_quality_enabled)
@@ -75,9 +65,10 @@ int32_t AirQualityTelemetryModule::runOnce()
             // Just send to phone when it's not our time to send to mesh yet
             // Only send while queue is empty (phone assumed connected)
             sendTelemetry(NODENUM_BROADCAST, true);
+            lastSentToPhone = millis();
         }
     }
-    return sendToPhoneIntervalMs;
+    return min(sendToPhoneIntervalMs, result);
 }
 
 bool AirQualityTelemetryModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshtastic_Telemetry *t)
@@ -106,26 +97,18 @@ bool AirQualityTelemetryModule::handleReceivedProtobuf(const meshtastic_MeshPack
 
 bool AirQualityTelemetryModule::getAirQualityTelemetry(meshtastic_Telemetry *m)
 {
-    if (!aqi.read(&data)) {
-        LOG_WARN("Skip send measurements. Could not read AQIn");
-        return false;
-    }
+    bool valid = true;
+    bool hasSensor = false;
 
     m->time = getTime();
     m->which_variant = meshtastic_Telemetry_air_quality_metrics_tag;
-    m->variant.air_quality_metrics.has_pm10_standard = true;
-    m->variant.air_quality_metrics.pm10_standard = data.pm10_standard;
-    m->variant.air_quality_metrics.has_pm25_standard = true;
-    m->variant.air_quality_metrics.pm25_standard = data.pm25_standard;
-    m->variant.air_quality_metrics.has_pm100_standard = true;
-    m->variant.air_quality_metrics.pm100_standard = data.pm100_standard;
-
-    m->variant.air_quality_metrics.has_pm10_environmental = true;
-    m->variant.air_quality_metrics.pm10_environmental = data.pm10_env;
-    m->variant.air_quality_metrics.has_pm25_environmental = true;
-    m->variant.air_quality_metrics.pm25_environmental = data.pm25_env;
-    m->variant.air_quality_metrics.has_pm100_environmental = true;
-    m->variant.air_quality_metrics.pm100_environmental = data.pm100_env;
+    m->variant.air_quality_metrics = meshtastic_AirQualityMetrics_init_zero;
+#if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
+    if (pmsa003iSensor.hasSensor()) {
+        valid = valid && pmsa003iSensor.getMetrics(m);
+        hasSensor = true;
+    }
+#endif
 
     LOG_INFO("Send: PM1.0(Standard)=%i, PM2.5(Standard)=%i, PM10.0(Standard)=%i", m->variant.air_quality_metrics.pm10_standard,
              m->variant.air_quality_metrics.pm25_standard, m->variant.air_quality_metrics.pm100_standard);
@@ -134,7 +117,7 @@ bool AirQualityTelemetryModule::getAirQualityTelemetry(meshtastic_Telemetry *m)
              m->variant.air_quality_metrics.pm10_environmental, m->variant.air_quality_metrics.pm25_environmental,
              m->variant.air_quality_metrics.pm100_environmental);
 
-    return true;
+    return valid && hasSensor;
 }
 
 meshtastic_MeshPacket *AirQualityTelemetryModule::allocReply()
