@@ -17,8 +17,10 @@
 #if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
 // sensors
 #include "Sensor/PMSA003ISensor.h"
+#include "Sensor/SCD30Sensor.h"
 
 PMSA003ISensor pmsa003iSensor;
+SCD30Sensor scd30Sensor;
 #endif
 
 int32_t AirQualityTelemetryModule::runOnce()
@@ -43,8 +45,14 @@ int32_t AirQualityTelemetryModule::runOnce()
         if (moduleConfig.telemetry.air_quality_enabled) {
             LOG_INFO("Air quality Telemetry: init");
 #if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
-            if (pmsa003iSensor.hasSensor())
+            if (pmsa003iSensor.hasSensor()) {
+                LOG_INFO("PMSA003I (hasSensor)");
                 result = pmsa003iSensor.runOnce();
+            }
+            if (scd30Sensor.hasSensor()) {
+                LOG_INFO("scd30 (hasSensor)");
+                result = scd30Sensor.runOnce();
+            }
 #endif
         }
         return result == UINT32_MAX ? disable() : setStartDelay();
@@ -77,6 +85,14 @@ bool AirQualityTelemetryModule::handleReceivedProtobuf(const meshtastic_MeshPack
 #ifdef DEBUG_PORT
         const char *sender = getSenderShortName(mp);
 
+        if (t->variant.air_quality_metrics.has_co2) {
+            LOG_INFO("(Received from %s): CO2=%i", sender, t->variant.air_quality_metrics.co2);
+        }
+
+        if (t->variant.environment_metrics.has_temperature) {
+            LOG_INFO("(Received from %s): temperature=%i", sender, t->variant.environment_metrics.temperature);
+        }
+
         LOG_INFO("(Received from %s): pm10_standard=%i, pm25_standard=%i, pm100_standard=%i", sender,
                  t->variant.air_quality_metrics.pm10_standard, t->variant.air_quality_metrics.pm25_standard,
                  t->variant.air_quality_metrics.pm100_standard);
@@ -97,6 +113,7 @@ bool AirQualityTelemetryModule::handleReceivedProtobuf(const meshtastic_MeshPack
 
 bool AirQualityTelemetryModule::getAirQualityTelemetry(meshtastic_Telemetry *m)
 {
+    LOG_INFO("AirQualityTelemetryModule::getAirQualityTelemetry(...)");
     bool valid = true;
     bool hasSensor = false;
 
@@ -108,7 +125,14 @@ bool AirQualityTelemetryModule::getAirQualityTelemetry(meshtastic_Telemetry *m)
         valid = valid && pmsa003iSensor.getMetrics(m);
         hasSensor = true;
     }
+    if (scd30Sensor.hasSensor()) {
+        valid = valid && scd30Sensor.getMetrics(m);
+        hasSensor = true;
+    }
 #endif
+    if (m->variant.air_quality_metrics.has_co2) {
+        LOG_INFO("Send: CO2=%i", m->variant.air_quality_metrics.co2);
+    }
 
     LOG_INFO("Send: PM1.0(Standard)=%i, PM2.5(Standard)=%i, PM10.0(Standard)=%i", m->variant.air_quality_metrics.pm10_standard,
              m->variant.air_quality_metrics.pm25_standard, m->variant.air_quality_metrics.pm100_standard);

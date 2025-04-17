@@ -71,6 +71,7 @@ class ScanI2C
         DPS310,
         LTR390UV,
         TCA8418KB,
+        SCD30,
     } DeviceType;
 
     // typedef uint8_t DeviceAddress;

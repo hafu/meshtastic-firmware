@@ -720,6 +720,7 @@ void setup()
     scannerToSensorsMap(i2cScanner, ScanI2C::DeviceType::DFROBOT_RAIN, meshtastic_TelemetrySensorType_DFROBOT_RAIN);
     scannerToSensorsMap(i2cScanner, ScanI2C::DeviceType::LTR390UV, meshtastic_TelemetrySensorType_LTR390UV);
     scannerToSensorsMap(i2cScanner, ScanI2C::DeviceType::DPS310, meshtastic_TelemetrySensorType_DPS310);
+    scannerToSensorsMap(i2cScanner, ScanI2C::DeviceType::SCD30, meshtastic_TelemetrySensorType_SCD30);
 
     i2cScanner.reset();
 #endif
@@ -1357,6 +1358,7 @@ void scannerToSensorsMap(const std::unique_ptr<ScanI2CTwoWire> &i2cScanner, Scan
 {
     auto found = i2cScanner->find(deviceType);
     if (found.type != ScanI2C::DeviceType::NONE) {
+        LOG_INFO("Found deviceType %i, address 0x%x", deviceType, found.address.address);
         nodeTelemetrySensorsMap[sensorType].first = found.address.address;
         nodeTelemetrySensorsMap[sensorType].second = i2cScanner->fetchI2CBus(found.address);
     }

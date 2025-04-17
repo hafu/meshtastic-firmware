@@ -437,6 +437,7 @@ void ScanI2CTwoWire::scanPort(I2CPort port, uint8_t *address, uint8_t asize)
 #ifdef HAS_TPS65233
                 SCAN_SIMPLE_CASE(TPS65233_ADDR, TPS65233, "TPS65233", (uint8_t)addr.address);
 #endif
+                SCAN_SIMPLE_CASE(SCD30_ADDR, SCD30, "SCD30", (uint8_t)addr.address);
 
             case MLX90614_ADDR_DEF:
                 registerValue = getRegisterValue(ScanI2CTwoWire::RegisterLocation(addr, 0x0e), 1);
