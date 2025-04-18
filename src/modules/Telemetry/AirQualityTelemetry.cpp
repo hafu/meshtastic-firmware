@@ -126,7 +126,7 @@ bool AirQualityTelemetryModule::getAirQualityTelemetry(meshtastic_Telemetry *m)
         hasSensor = true;
     }
     if (scd30Sensor.hasSensor()) {
-        valid = valid && scd30Sensor.getMetrics(m);
+        valid = valid && scd30Sensor.getAirQualityMetrics(m);
         hasSensor = true;
     }
 #endif

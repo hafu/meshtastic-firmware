@@ -19,6 +19,10 @@ class SCD30Sensor : public TelemetrySensor
     SCD30Sensor();
     virtual int32_t runOnce() override;
     virtual bool getMetrics(meshtastic_Telemetry *measurement) override;
+    bool getAirQualityMetrics(meshtastic_Telemetry *measurement);
+    bool getEnvironmentalMetrics(meshtastic_Telemetry *measurement);
+    bool getEnvironmentalTemperature(meshtastic_Telemetry *measurement);
+    bool getEnvironmentalRelativeHumidity(meshtastic_Telemetry *measurement);
 };
 
 #endif

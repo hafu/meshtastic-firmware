@@ -94,15 +94,41 @@ bool SCD30Sensor::getMetrics(meshtastic_Telemetry *measurement)
 
     LOG_DEBUG("SCD30: co2: %.2f, temperature: %.2f, humidity: %.2f", scd30.CO2, scd30.temperature, scd30.relative_humidity);
 
-    measurement->variant.air_quality_metrics.has_co2 = true;
-    measurement->variant.air_quality_metrics.co2 = scd30.CO2;
-
-    // // NOTE: environment metrics, may prefer environment sensor
-    // measurement->variant.environment_metrics.has_temperature = true;
-    // measurement->variant.environment_metrics.has_relative_humidity = true;
-    // measurement->variant.environment_metrics.temperature = scd30.temperature;
-    // measurement->variant.environment_metrics.relative_humidity = scd30.relative_humidity;
-
     return true;
+}
+
+bool SCD30Sensor::getAirQualityMetrics(meshtastic_Telemetry *measurement)
+{
+    if (getMetrics(measurement)) {
+        measurement->variant.air_quality_metrics.has_co2 = true;
+        measurement->variant.air_quality_metrics.co2 = scd30.CO2;
+        return true;
+    }
+    return false;
+}
+
+bool SCD30Sensor::getEnvironmentalRelativeHumidity(meshtastic_Telemetry *measurement)
+{
+    if (getMetrics(measurement)) {
+        measurement->variant.environment_metrics.has_relative_humidity = true;
+        measurement->variant.environment_metrics.relative_humidity = scd30.relative_humidity;
+        return true;
+    }
+    return false;
+}
+
+bool SCD30Sensor::getEnvironmentalTemperature(meshtastic_Telemetry *measurement)
+{
+    if (getMetrics(measurement)) {
+        measurement->variant.environment_metrics.has_temperature = true;
+        measurement->variant.environment_metrics.temperature = scd30.temperature;
+        return true;
+    }
+    return false;
+}
+
+bool SCD30Sensor::getEnvironmentalMetrics(meshtastic_Telemetry *measurement)
+{
+    return getEnvironmentalRelativeHumidity(measurement) && getEnvironmentalTemperature(measurement);
 }
 #endif
