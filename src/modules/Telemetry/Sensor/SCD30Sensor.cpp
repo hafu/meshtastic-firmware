@@ -11,7 +11,21 @@
 #include "TelemetrySensor.h"
 #include <Adafruit_SCD30.h>
 
-SCD30Sensor::SCD30Sensor() : TelemetrySensor(meshtastic_TelemetrySensorType_SCD30, "SCD30") {}
+SCD30Sensor::SCD30Sensor() : TelemetrySensor(meshtastic_TelemetrySensorType_SCD30, "SCD30")
+{
+    LOG_DEBUG("SCD30Sensor::SCD30Sensor()");
+}
+
+SCD30Sensor *SCD30Sensor::getInstance()
+{
+    if (pinstance == nullptr) {
+        LOG_DEBUG("SCD30: new instance");
+        pinstance = new SCD30Sensor();
+    }
+    return pinstance;
+}
+
+SCD30Sensor *SCD30Sensor::pinstance{nullptr};
 
 int32_t SCD30Sensor::runOnce()
 {
@@ -20,54 +34,60 @@ int32_t SCD30Sensor::runOnce()
         return DEFAULT_SENSOR_MINIMUM_WAIT_TIME_BETWEEN_READS;
     }
 
-    scd30 = Adafruit_SCD30();
-    status = scd30.begin(nodeTelemetrySensorsMap[sensorType].first, nodeTelemetrySensorsMap[sensorType].second);
-    if (!status) {
-        LOG_ERROR("SCD30: begin error: %i", status);
-    }
-    LOG_DEBUG("SCD30 begin cmd OK");
+    if (first_run) {
+        first_run = false;
 
-    scd30.reset();
-    delay(2000);
+        scd30 = Adafruit_SCD30();
+        status = scd30.begin(nodeTelemetrySensorsMap[sensorType].first, nodeTelemetrySensorsMap[sensorType].second);
+        if (!status) {
+            LOG_ERROR("SCD30: begin error: %i", status);
+        }
+        LOG_DEBUG("SCD30 begin cmd OK");
 
-    // status = scd30.setAltitudeOffset(50);
-    // if (!status) {
-    //   LOG_ERROR("SCD30: setAltitudeOffset: %i", status);
-    // }
-    // LOG_DEBUG("SCD30 setAltitudeOffset cmd OK");
-    // LOG_DEBUG("SCD30 setAltitudeOffset is %i", scd30.getAltitudeOffset());
+        scd30.reset();
+        delay(2000);
 
-    status = scd30.selfCalibrationEnabled(false);
-    if (!status) {
-        LOG_ERROR("SCD30: selfCalibrationEnabled: %i", status);
-    }
-    LOG_DEBUG("SCD30 selfCalibrationEnabled cmd OK");
-    LOG_DEBUG("SCD30 selfCalibrationEnabled is %i", scd30.selfCalibrationEnabled());
+        // status = scd30.setAltitudeOffset(50);
+        // if (!status) {
+        //   LOG_ERROR("SCD30: setAltitudeOffset: %i", status);
+        // }
+        // LOG_DEBUG("SCD30 setAltitudeOffset cmd OK");
+        // LOG_DEBUG("SCD30 setAltitudeOffset is %i", scd30.getAltitudeOffset());
 
-    // set measurement interval twice the configured interval
-    // NOTE: or set it to the configured value?
-    // https://sensirion.com/media/documents/0FEA2450/61652EF9/Sensirion_CO2_Sensors_SCD30_Low_Power_Mode.pdf
-    // Should be between 5 - 60s
-    if (moduleConfig.telemetry.air_quality_interval > 60) {
-        // max interval
-        measurement_interval = 60;
-    } else if (moduleConfig.telemetry.air_quality_interval < 2) {
-        measurement_interval = 2;
+        status = scd30.selfCalibrationEnabled(false);
+        if (!status) {
+            LOG_ERROR("SCD30: selfCalibrationEnabled: %i", status);
+        }
+        LOG_DEBUG("SCD30 selfCalibrationEnabled cmd OK");
+        LOG_DEBUG("SCD30 selfCalibrationEnabled is %i", scd30.selfCalibrationEnabled());
+
+        // set measurement interval twice the configured interval
+        // NOTE: or set it to the configured value?
+        // https://sensirion.com/media/documents/0FEA2450/61652EF9/Sensirion_CO2_Sensors_SCD30_Low_Power_Mode.pdf
+        // Should be between 5 - 60s
+        if (moduleConfig.telemetry.air_quality_interval > 60) {
+            // max interval
+            measurement_interval = 60;
+        } else if (moduleConfig.telemetry.air_quality_interval < 2) {
+            measurement_interval = 2;
+        } else {
+            measurement_interval = (uint16_t)moduleConfig.telemetry.air_quality_interval;
+        }
+        status = scd30.setMeasurementInterval(measurement_interval);
+        if (!status) {
+            LOG_ERROR("SCD30: setMeasurementIntervalerror: %i", status);
+        }
+        LOG_DEBUG("SCD30 setMeasurementIntervalerror cmd OK");
+        LOG_DEBUG("SCD30 getMeasurementInterval: %i", scd30.getMeasurementInterval());
+
+        status = scd30.startContinuousMeasurement();
+        if (!status) {
+            LOG_ERROR("SCD: startContinuousMeasurement: %i", status);
+        }
+        LOG_DEBUG("SCD30 startContinuousMeasurement cmd OK");
     } else {
-        measurement_interval = (uint16_t)moduleConfig.telemetry.air_quality_interval;
+        LOG_DEBUG("SCD30 already intilized.");
     }
-    status = scd30.setMeasurementInterval(measurement_interval);
-    if (!status) {
-        LOG_ERROR("SCD30: setMeasurementIntervalerror: %i", status);
-    }
-    LOG_DEBUG("SCD30 setMeasurementIntervalerror cmd OK");
-    LOG_DEBUG("SCD30 getMeasurementInterval: %i", scd30.getMeasurementInterval());
-
-    status = scd30.startContinuousMeasurement();
-    if (!status) {
-        LOG_ERROR("SCD: startContinuousMeasurement: %i", status);
-    }
-    LOG_DEBUG("SCD30 startContinuousMeasurement cmd OK");
 
     return initI2CSensor();
 }
@@ -81,9 +101,15 @@ bool SCD30Sensor::getMetrics(meshtastic_Telemetry *measurement)
     //   LOG_WARN("SCD30: Skip send measurements. Data not ready");
     //   // return false;
     // }
-    if (!scd30.read()) {
-        LOG_WARN("SCD30: Could not read data");
-        //   return false;
+    if (lastRead == 0 || (millis() - lastRead) >= measurement_interval * 1000) {
+        LOG_DEBUG("SCD30: Try to read data");
+        if (!scd30.read()) {
+            LOG_WARN("SCD30: Could not read data");
+            //   return false;
+        } else {
+            lastRead = millis();
+            LOG_DEBUG("SCD30: last read set to %i", lastRead);
+        }
     }
 
     // if CO2 value is higher than lowest value we have a valid measurement

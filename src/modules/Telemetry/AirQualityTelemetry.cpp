@@ -20,7 +20,6 @@
 #include "Sensor/SCD30Sensor.h"
 
 PMSA003ISensor pmsa003iSensor;
-SCD30Sensor scd30Sensor;
 #endif
 
 int32_t AirQualityTelemetryModule::runOnce()
@@ -49,9 +48,9 @@ int32_t AirQualityTelemetryModule::runOnce()
                 LOG_INFO("PMSA003I (hasSensor)");
                 result = pmsa003iSensor.runOnce();
             }
-            if (scd30Sensor.hasSensor()) {
+            if (SCD30Sensor::getInstance()->hasSensor()) {
                 LOG_INFO("scd30 (hasSensor)");
-                result = scd30Sensor.runOnce();
+                result = SCD30Sensor::getInstance()->runOnce();
             }
 #endif
         }
@@ -125,8 +124,8 @@ bool AirQualityTelemetryModule::getAirQualityTelemetry(meshtastic_Telemetry *m)
         valid = valid && pmsa003iSensor.getMetrics(m);
         hasSensor = true;
     }
-    if (scd30Sensor.hasSensor()) {
-        valid = valid && scd30Sensor.getAirQualityMetrics(m);
+    if (SCD30Sensor::getInstance()->hasSensor()) {
+        valid = valid && SCD30Sensor::getInstance()->getAirQualityMetrics(m);
         hasSensor = true;
     }
 #endif
