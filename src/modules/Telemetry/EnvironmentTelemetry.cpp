@@ -496,13 +496,13 @@ bool EnvironmentTelemetryModule::getEnvironmentTelemetry(meshtastic_Telemetry *m
         hasSensor = true;
     }
     if (moduleConfig.telemetry.air_quality_enabled && SCD30Sensor::getInstance()->hasSensor()) {
-        LOG_DEBUG("SCD30 sensor has also environment data, gather as needed.");
+        LOG_INFO("SCD30 sensor has also environment data, gather as needed.");
         if (!m->variant.environment_metrics.has_relative_humidity) {
-            LOG_DEBUG("SCD30 no humidity, using SCD30 value");
+            LOG_INFO("Using relative humidity value from SCD30 sensor");
             valid = valid && SCD30Sensor::getInstance()->getEnvironmentalRelativeHumidity(m);
         }
         if (!m->variant.environment_metrics.has_temperature) {
-            LOG_DEBUG("SCD30 no temperature, usint SCD30 value");
+            LOG_INFO("Using temperature value from SCD30 sensor");
             valid = valid && SCD30Sensor::getInstance()->getEnvironmentalTemperature(m);
         }
     }

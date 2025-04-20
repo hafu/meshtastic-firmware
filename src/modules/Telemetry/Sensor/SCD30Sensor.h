@@ -15,7 +15,7 @@ class SCD30Sensor : public TelemetrySensor
     Adafruit_SCD30 scd30;
     uint16_t measurement_interval = 2; // default value in seconds
     bool first_run = true;
-    uint32_t lastRead = 0;
+    uint32_t last_read_ms = 0;
 
   protected:
     virtual void setup() override;

@@ -45,11 +45,9 @@ int32_t AirQualityTelemetryModule::runOnce()
             LOG_INFO("Air quality Telemetry: init");
 #if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL
             if (pmsa003iSensor.hasSensor()) {
-                LOG_INFO("PMSA003I (hasSensor)");
                 result = pmsa003iSensor.runOnce();
             }
             if (SCD30Sensor::getInstance()->hasSensor()) {
-                LOG_INFO("scd30 (hasSensor)");
                 result = SCD30Sensor::getInstance()->runOnce();
             }
 #endif
