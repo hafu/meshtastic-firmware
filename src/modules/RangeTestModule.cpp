@@ -33,7 +33,7 @@ uint32_t packetSequenceTries = 0;
 
 int32_t RangeTestModule::runOnce()
 {
-#if defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_STM32WL) || defined(ARCH_PORTDUINO)
+#if defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_STM32WL) || defined(ARCH_RP2040) || defined(ARCH_PORTDUINO)
 
     /*
         Uncomment the preferences below if you want to use the module
@@ -135,15 +135,8 @@ void RangeTestModuleRadio::sendPayload(NodeNum dest, bool wantReplies)
     static char heartbeatString[MAX_LORA_PAYLOAD_LEN + 1];
     // snprintf(heartbeatString, sizeof(heartbeatString), "seq %u", packetSequence);
     // snprintf(heartbeatString, sizeof(heartbeatString), "seq %u ate %u", packetSequence, airTimeExceededCounter);
-    snprintf(
-             heartbeatString,
-             sizeof(heartbeatString),
-             "seq %u/%u exc %u chu %.2f%%",
-             packetSequence,
-             packetSequenceTries,
-             airTimeExceededCounter,
-             airTime->channelUtilizationPercent()
-         );
+    snprintf(heartbeatString, sizeof(heartbeatString), "seq %u/%u exc %u chu %.2f%%", packetSequence, packetSequenceTries,
+             airTimeExceededCounter, airTime->channelUtilizationPercent());
 
     p->decoded.payload.size = strlen(heartbeatString); // You must specify how many bytes are in the reply
     memcpy(p->decoded.payload.bytes, heartbeatString, p->decoded.payload.size);
@@ -156,7 +149,7 @@ void RangeTestModuleRadio::sendPayload(NodeNum dest, bool wantReplies)
 
 ProcessMessage RangeTestModuleRadio::handleReceived(const meshtastic_MeshPacket &mp)
 {
-#if defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_STM32WL) || defined(ARCH_PORTDUINO)
+#if defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_STM32WL) || defined(ARCH_RP2040) || defined(ARCH_PORTDUINO)
 
     if (moduleConfig.range_test.enabled) {
 
